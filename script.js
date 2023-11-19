@@ -1,5 +1,6 @@
 let canvasWidth = 450;
 let canvasHeight = 700;
+let styleChoices = [];
 let circles = [];
 let maxSize = 80; // Maximum radius size
 let minSize = 2; // Minimum radius size
@@ -18,12 +19,13 @@ let rectY = [];
 let rectWidth = [];
 let rectHeight = [];
 let rectBound = [];
-let darkPaletteChoices = [
-   [[197, 71, 88], [0, 100, 50]],
-   [[345, 52, 100], [40, 65, 100]],
-   [[173, 77, 100], [244, 93, 100]],
-   [[311, 78, 45], [193, 85, 29]],
-   [[320, 98, 95], [60, 92, 90]]
+let bgChoices = [[0, 0, 0], [45, 20, 100], [200, 30, 100]];
+let paletteChoices = [
+   [[197, 100, 88], [0, 100, 50]],
+   [[345, 100, 100], [40, 100, 100]],
+   [[173, 100, 100], [244, 100, 100]],
+   [[311, 100, 45], [193, 100, 29]],
+   [[320, 100, 95], [60, 100, 90]]
 ]
 let lightPaletteChoices = [
    [[0, 0, 2], [187, 84, 67]]
@@ -34,13 +36,20 @@ function setup() {
    myCanvas = createCanvas(canvasWidth, canvasHeight, WEBGL);
    centerCanvas();
    colorMode(HSB); // Switch to HSB color mode
-   isDark = random() < 1;
+   bgColor = random(bgChoices);
+   // bgColor = bgChoices[2];
+   console.log("bgColor:", bgColor);
+   styleNums = [1, 2];
+   style = random(styleNums);
+   console.log("styleNum:", style);
+   isDark = random() < .5;
    console.log("isDark:", isDark);
-   if (isDark) {
-      palette = shuffle(random(darkPaletteChoices));
-   } else {
-      palette = shuffle(random(lightPaletteChoices));
-   }
+   // if (isDark) {
+   //    palette = shuffle(random(darkPaletteChoices));
+   // } else {
+   //    palette = shuffle(random(lightPaletteChoices));
+   // }
+   palette = shuffle(random(paletteChoices));
    color1 = palette[0];
    color2 = palette[1];
    console.log("color1:", color1);
@@ -50,17 +59,17 @@ function setup() {
       for (let i = 0; i < numRect; i++) {
          isSquare = random() < .5;
          if (isSquare) {
-            rectWidth[i] = random((canvasWidth - (2 * frameThickness))/8, (canvasWidth - (2 * frameThickness)) * (3/4));
+            rectWidth[i] = random((canvasWidth - (2 * frameThickness))/8, (canvasWidth - (2 * frameThickness)) * (4/5));
             rectHeight[i] = rectWidth[i];
             console.log("rectWidth:", rectWidth[i]);
             console.log("rectHeight:", rectHeight[i]);
          } else {
-            rectWidth[i] = random((canvasWidth - (2 * frameThickness))/8, (canvasWidth - (2 * frameThickness)) * (3/4));
-            rectHeight[i] = random((canvasHeight - (2 * frameThickness))/8, (canvasHeight - (2 * frameThickness)) * (3/4));
+            rectWidth[i] = random((canvasWidth - (2 * frameThickness))/8, (canvasWidth - (2 * frameThickness)) * (4/5));
+            rectHeight[i] = random((canvasWidth - (2 * frameThickness))/8, (canvasWidth - (2 * frameThickness)) * (4/5));
          }
          rectX[i] = random(frameThickness + frameToRectPad, canvasWidth - rectWidth[i] - frameThickness - frameToRectPad);
          rectY[i] = random(frameThickness + frameToRectPad, canvasHeight - rectHeight[i] - frameThickness - frameToRectPad);
-         rectBound[i] = random(10, 40);
+         rectBound[i] = random(10, 25);
          console.log("rectX:", rectX[i]);
          console.log("rectY:", rectY[i]);
          console.log("rectBound:", rectBound[i]);
@@ -72,12 +81,12 @@ function setup() {
             rectWidth[i] = random((canvasHeight - (2 * frameThickness))/8, (canvasHeight - (2 * frameThickness)) * (3/4));
             rectHeight[i] = rectWidth[i];
          } else {
-            rectWidth[i] = random((canvasWidth - (2 * frameThickness))/8, (canvasWidth - (2 * frameThickness)) * (3/4));
+            rectWidth[i] = random((canvasHeight - (2 * frameThickness))/8, (canvasHeight - (2 * frameThickness)) * (3/4));
             rectHeight[i] = random((canvasHeight - (2 * frameThickness))/8, (canvasHeight - (2 * frameThickness)) * (3/4));
          }
          rectX[i] = random(frameThickness + frameToRectPad, (canvasWidth) - (rectWidth) - frameThickness - frameToRectPad);
          rectY[i] = random(frameThickness + frameToRectPad, (canvasHeight) - (rectHeight) - frameThickness - frameToRectPad);
-         rectBound[i] = random(10, 40);
+         rectBound[i] = random(10, 25);
       }
    }
    let currentSize = maxSize;
@@ -95,7 +104,8 @@ function setup() {
             y: y,
             r: currentSize,
             color: getRandomColor(y / height),
-            randomAngle: random(TWO_PI)
+            randomAngle: random(TWO_PI),
+            crossHatch: PI/2
          };
          if (!collides(newCircle)) {
             circles.push(newCircle);
@@ -110,13 +120,6 @@ function setup() {
          denom = sizeTier + 1;
       }
    }
-
-   // noFill();
-   // stroke(0);
-   // strokeWeight(frameThickness);
-   // rect(framePadding, framePadding, width - 2 * framePadding, height - 2 * framePadding);
-   // rect(0, 0, 50, 100);
-
 
    // rectX = random(((rectWidth/2) - (canvasWidth/2)), ((canvasWidth/2) - (rectWidth/2)));
    // rectY = random(((rectHeight/2) - (canvasHeight/2)), ((canvasHeight/2) - (rectHeight/2)));
@@ -142,13 +145,31 @@ function centerCanvas() {
  }
 
 function draw() {
-   background(0);
+   background(bgColor);
    translate(-width / 2, -height / 2); // Adjust for WEBGL's center origin
+
+   fill([0, 0, 0]);
+   // stroke(0);
+   // strokeWeight(frameThickness);
+   // rect(0, 0, frameThickness, height);
+   // rect(0, 0, width, frameThickness);
+   // rect(width - frameThickness, 0, frameThickness, height);
+   // rect(0, height - frameThickness, width, frameThickness);
+   // rect(0, 0, 50, 100);
 
    // fill(100, 100, 100);
    noStroke();
    // rect(rectX, rectY, rectWidth, rectHeight);
 
+   if (style == 1) {
+      parallelHatch();
+   } else if (style == 2) {
+      crossHatch();
+   }
+   // console.log("style:", random(styleChoices));
+}
+
+function parallelHatch() {
    for (let circle of circles) {
       let numLines = circle.r * 3; // Proportional to the radius
       let lineSpacing = (circle.r * 2) / numLines;
@@ -159,27 +180,89 @@ function draw() {
       rotate(circle.randomAngle); // Apply rotation
 
       if (isDark) {
-         fillLight = 10;
-         fill(color(hue(circle.color), fillLight, brightness(circle.color)));
+         // fillLight = 10;
+         // fill(color(hue(circle.color), fillLight, brightness(circle.color)));
          // console.log("fillLight:", fillLight);
+         fill(0, 0, 20);
       } else {
-         fillDark = 10;
-         fill(color(hue(circle.color), saturation(circle.color), fillDark));
+         fill(0, 0, 80);
+         // fill(color(hue(circle.color), saturation(circle.color), fillDark));
          // console.log("fillDark:", fillDark);
       }
       noStroke();
       ellipse(0, 0, circle.r * 2, circle.r * 2);
 
       stroke(circle.color); // Color of the hatching lines
-      strokeWeight(.5); // Thickness of the hatching lines
+      strokeWeight(.2); // Thickness of the hatching lines
+
       for (let i = 0; i <= numLines; i++) {
          let y = -circle.r + i * lineSpacing;
          let xDelta = sqrt(circle.r * circle.r - y * y);
          line(-xDelta, y, xDelta, y);
-       }
-   
+      }
+
       pop(); // Revert transformations
    }
+}
+
+function crossHatch() {
+   for (let circle of circles) {
+      let numLines = circle.r * 2; // Proportional to the radius
+      let lineSpacing = (circle.r * 2) / numLines;
+      // let randomAngle = random(TWO_PI); // Random rotation angle
+
+      push(); // Isolate transformations
+      translate(circle.x, circle.y); // Move to the circle's center
+      rotate(circle.randomAngle); // Apply rotation
+
+      if (isDark) {
+         // fillLight = 10;
+         // fill(color(hue(circle.color), fillLight, brightness(circle.color)));
+         // console.log("fillLight:", fillLight);
+         fill(0, 0, 20);
+      } else {
+         // fillDark = 10;
+         // fill(color(hue(circle.color), saturation(circle.color), fillDark));
+         // console.log("fillDark:", fillDark);
+         fill(0, 0, 80);
+      }
+      noStroke();
+      ellipse(0, 0, circle.r * 2, circle.r * 2);
+      stroke(circle.color); // Color of the hatching lines
+      strokeWeight(.25); // Thickness of the hatching lines
+
+      for (let i = 0; i <= numLines; i++) {
+         let y = -circle.r + i * lineSpacing;
+         let xDelta = sqrt(circle.r * circle.r - y * y);
+         line(-xDelta, y, xDelta, y);
+      }
+
+      rotate(circle.crossHatch); // Apply rotation
+
+      for (let j = 0; j <= numLines; j++) {
+         let y = -circle.r + j * lineSpacing;
+         let xDelta = sqrt(circle.r * circle.r - y * y);
+         line(-xDelta, y, xDelta, y);
+      }
+      
+      pop(); // Revert transformations
+   }
+}
+
+function contourHatch(){
+
+}
+
+function scribbleHatch() {
+
+}
+
+function stippleHatch() {
+
+}
+
+function zigZagHatch() {
+
 }
 
 function getRandomColor(position) {
@@ -202,7 +285,7 @@ function getRandomColor(position) {
    // bright = (bright + 100) % 100;
  
    // Return the HSB color
-   return color(hue, sat, bright);
+   return color(hue, 100, 100);
 }
 
 function collides(circle) {
