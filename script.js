@@ -147,9 +147,9 @@ function centerCanvas() {
    myCanvas.position(x, y);
  }
  
- function windowResized() {
-   centerCanvas();
- }
+//  function windowResized() {
+//    centerCanvas();
+//  }
 
 function draw() {
    background(bgColor);
