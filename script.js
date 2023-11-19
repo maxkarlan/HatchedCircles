@@ -1,5 +1,5 @@
-let canvasWidth = 450;
-let canvasHeight = 700;
+// let canvasWidth = 450;
+// let canvasHeight = 700;
 let styleChoices = [];
 let circles = [];
 let maxSize = 80; // Maximum radius size
@@ -33,6 +33,13 @@ let lightPaletteChoices = [
 let saveButton;
 
 function setup() {
+   if (windowWidth > windowHeight * (2/3)) {
+      canvasHeight = windowHeight;
+      canvasWidth = canvasHeight * (2/3);
+   } else {
+      canvasWidth = windowWidth;
+      canvasHeight = canvasWidth * (3/2);
+   }
    myCanvas = createCanvas(canvasWidth, canvasHeight, WEBGL);
    centerCanvas();
    colorMode(HSB); // Switch to HSB color mode
@@ -124,10 +131,10 @@ function setup() {
    // rectX = random(((rectWidth/2) - (canvasWidth/2)), ((canvasWidth/2) - (rectWidth/2)));
    // rectY = random(((rectHeight/2) - (canvasHeight/2)), ((canvasHeight/2) - (rectHeight/2)));
 
-   // Create and position the save button
-   saveButton = createButton('Save as JPG');
-   saveButton.position(10, height + 10); // Adjust the position as needed
-   saveButton.mousePressed(saveArtwork); // Attach event listener
+   // // Create and position the save button
+   // saveButton = createButton('Save as JPG');
+   // saveButton.position(10, height / 2); // Adjust the position as needed
+   // saveButton.mousePressed(saveArtwork); // Attach event listener
 }
 
 function saveArtwork() {
