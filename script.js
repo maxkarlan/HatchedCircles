@@ -2,10 +2,10 @@ let styleChoices = [];
 let circles = [];
 let maxSize = 80; // Maximum radius size
 let minSize = 2; // Minimum radius size
-let totalCircles = 50000; // Total number of circles to attempt to pack
+let totalCircles = 10000; // Total number of circles to attempt to pack
 let attemptLimit = 100; // Maximum attempts before moving to a smaller size
 sizeTier = 1;
-let denom = 3;
+let denom = 2;
 let frameThickness = 15; // Thickness of the frame
 let frameToRectPad = 10; // Space between the frame and the rectangle range
 let rectX = [];
@@ -13,7 +13,7 @@ let rectY = [];
 let rectWidth = [];
 let rectHeight = [];
 let rectBound = [];
-let bgChoices = [[0, 0, 0], [45, 20, 100], [200, 30, 100]];
+let bgChoices = [[0, 0, 0], [45, 20, 100], [200, 30, 100], [114, 25, 100]];
 const maxBranches = 1000;
 const maxDepth = 2;
 let attempts = 0;
@@ -26,6 +26,12 @@ let paletteChoices = [
    [[311, 100, 100], [193, 100, 100]],
    [[320, 100, 100], [60, 100, 100]]
 ];
+
+let zoom = 1; // Initial zoom level
+
+// Three.js specific setup
+let scene, camera, renderer;
+
 function setup() {
    if (windowWidth > windowHeight * (2/3)) {
       canvasHeight = windowHeight;
@@ -36,9 +42,15 @@ function setup() {
    }
    myCanvas = createCanvas(canvasWidth, canvasHeight, WEBGL);
    centerCanvas();
+   window.addEventListener('wheel', (e) => {
+      // Zoom in or out
+      zoom += e.deltaY * -0.01;
+      // Restrict scale
+      zoom = constrain(zoom, 0.5, 2); // Adjust min and max zoom as needed
+    });
    colorMode(HSB); // Switch to HSB color mode
    bgColor = random(bgChoices);
-   styleNums = [1, 2, 3, 4];
+   styleNums = [1, 2, 3, 4, 5];
    style = random(styleNums);
    palette = shuffle(random(paletteChoices));
    color1 = palette[0];
@@ -75,7 +87,12 @@ function setup() {
    }
    currentSize = maxSize;
    circleCounts = {}; // Track the number of circles for each size
-   background(bgColor);
+
+   if (style == 5) {
+      setupThreeJS();
+   } else {
+      background(bgColor);
+   }
 }
 
 function saveArtwork() {
@@ -88,8 +105,14 @@ function centerCanvas() {
    myCanvas.position(x, y);
  }
 
+function windowResized() {
+   centerCanvas();
+}
+
 function draw() {
    translate(-width / 2, -height / 2); // Adjust for WEBGL's center origin
+
+   // scale(zoom); // Apply zoom scaling
 
    if (circles.length < totalCircles) {
       currentSize = max(currentSize, minSize);
@@ -113,8 +136,113 @@ function draw() {
             contourHatch();
          } else if (style ==4 ) {
             scribbleHatch();
+         } else if (style ==5) {
+            threeDim();
          }
       }
+   }
+
+   if (style == 5) {
+      renderer.render(scene, camera);
+  }
+}
+
+function newCircle(){
+   y = random(height);
+   let newCircle = {
+      x: random(width),
+      y: y,
+      r: currentSize,
+      color: getRandomColor(y / height),
+      randomAngle: random(TWO_PI),
+      crossHatch: PI/2,
+      scribbles: []
+   };
+   return newCircle;
+}
+
+function nextLayer(branches){
+   let new_branches = [];
+   for (let b of branches) {
+      for (let i = 0; i < maxBranches; i++){
+         // make copy of b. Call it new_b
+         let new_b = [...b];
+         //append new circle to new_b
+         new_b.push(newCircle());
+         //append new_b to new_branches
+         new_branches.push(new_b);
+      }
+   }
+   if (branches.length === 0){
+      for (let i = 0; i < maxBranches; i++){
+         // make copy of b. Call it new_b
+         let new_b = [];
+         //append new circle to new_b
+         new_b.push(newCircle());
+         //append new_b to new_branches
+         new_branches.push(new_b);
+      }
+   }
+   return new_branches;
+}
+
+function validNewLayer(branches){
+   return branches.filter(b => !collides(b[b.length - 1], b.slice(0, -1)));
+}
+
+function getHeadAtRandom(branches){
+   return random(branches)[0];
+}
+
+function shrink(){
+   currentSize = currentSize * (sizeTier/denom); 
+   sizeTier += 1;
+   denom += 1;
+}
+
+function nextCircle() {
+   let branches = [];
+   for(let i = 0; i < maxDepth; i++){
+      if (i === maxDepth - 1) {
+         let new_branches = [];
+         for (let b of branches) {
+            for (let i = 0; i < maxBranches; i++){
+               // make copy of b. Call it new_b
+               //append new circle to new_b
+               const c = newCircle();
+               if (!collides(c, b)){
+                  return b[0];
+               }
+            }
+         }
+         if (branches.length === 0){
+            for (let i = 0; i < maxBranches; i++){
+               // make copy of b. Call it new_b
+               const c = newCircle();
+               if (!collides(c)){
+                  return c;
+               }
+            }
+         }
+      } else {
+         let new_branches = nextLayer(branches);
+         new_branches = validNewLayer(new_branches);
+         if (new_branches.length === 0) {
+            if (branches.length === 0){
+               shrink();
+               return nextCircle();
+            }
+            return getHeadAtRandom(branches);
+         }
+         delete branches;
+         branches = new_branches;
+      }
+   }
+   if (branches.length === 0) {
+      shrink();
+      return nextCircle();
+   } else {
+      return getHeadAtRandom(branches);
    }
 }
 
@@ -223,12 +351,95 @@ function scribbleHatch() {
    }
 }
 
+function threeDim() {
+   for (let circle of [circles[circles.length - 1]]) {
+      createThreeJSSphere(circle);
+  }
+}
+
 function stippleHatch() {
 
 }
 
 function zigZagHatch() {
 
+}
+
+function setupThreeJS() {
+
+   // Assuming canvasWidth and canvasHeight are the dimensions of your p5.js canvas
+   let canvasWidth = myCanvas.width;
+   let canvasHeight = myCanvas.height;
+
+   scene = new THREE.Scene();
+   camera = new THREE.OrthographicCamera(-canvasWidth / 2, canvasWidth / 2, canvasHeight / 2, -canvasHeight / 2, 1, 1000);
+   renderer = new THREE.WebGLRenderer({ alpha: true }); // Enable transparency if needed
+   renderer.setSize(canvasWidth, canvasHeight);
+
+   // Set the renderer to the same size as the canvas
+   renderer = new THREE.WebGLRenderer({ alpha: true }); // Enable transparency
+   renderer.setSize(canvasWidth, canvasHeight);
+   // Center the renderer in the window
+   renderer.domElement.style.position = 'absolute';
+   renderer.domElement.style.top = '50%';
+   renderer.domElement.style.left = '50%';
+   renderer.domElement.style.transform = 'translate(-50%, -50%)';
+
+   // Add the renderer to the body or a specific element in your HTML
+   document.body.appendChild(renderer.domElement);
+
+   // Assuming bgColor is something like [hue, saturation, brightness]
+   let bgColorRGB = HSBtoRGB(bgColor[0], bgColor[1], bgColor[2]);
+   let backgroundColor = new THREE.Color(`rgb(${bgColorRGB[0]}, ${bgColorRGB[1]}, ${bgColorRGB[2]})`);
+    
+   // Set the background color of the renderer
+   renderer.setClearColor(backgroundColor);
+
+   // Position the camera to view the scene
+   camera.position.set(0, 0, 500); // Adjust the Z position as needed
+   camera.lookAt(scene.position); // Make the camera look at the center of the scene
+
+   // Point Light
+   let pointLight = new THREE.PointLight(0xffffff, 1, 5000);
+   pointLight.position.set(50, 50, 150);
+   scene.add(pointLight);
+
+   camera.position.z = 500;
+}
+
+function createThreeJSSphere(circle) {
+   let geometry = new THREE.SphereGeometry(circle.r, 32, 32);
+   //  let material = new THREE.MeshBasicMaterial({ color: circle.color });
+
+   // Generate color using the same method as in p5.js
+   let color = getRandomColor(circle.y / window.innerHeight); // Adjust as necessary
+   
+   // Use MeshStandardMaterial or MeshPhongMaterial for better lighting effects
+   let material = new THREE.MeshStandardMaterial({
+      color: color,
+      roughness: 0.5, // Adjust for material roughness
+      metalness: 0.1  // Adjust for metalness
+   });
+
+   let sphere = new THREE.Mesh(geometry, material);
+
+   // sphere.position.set(circle.x, circle.y, 0);
+      // Adjust position to align with p5.js coordinates
+      sphere.position.set(circle.x - myCanvas.width / 2, -circle.y + myCanvas.height / 2, 0);
+   scene.add(sphere);
+}
+
+// Function to convert HSB to RGB
+function HSBtoRGB(h, s, b) {
+   s /= 100;
+   b /= 100;
+   let k = (n) => (n + h / 60) % 6;
+   let f = (n) => b - b * s * Math.max(Math.min(k(n), 4 - k(n), 1), 0);
+   return [
+      Math.round(255 * f(5)), // Red
+      Math.round(255 * f(3)), // Green
+      Math.round(255 * f(1))  // Blue
+   ];
 }
 
 function getRandomColor(position) {
@@ -242,7 +453,11 @@ function getRandomColor(position) {
    // Keep the hue within the 0-360 range
    hue = (hue + 360) % 360;
 
-   return color(hue, 100, 100);
+   if (style === 5) {
+      return new THREE.Color(`hsl(${hue}, 100%, 50%)`); // Convert HSB/HSV to HSL
+   } else {
+      return color(hue, 100, 100);
+   }
 }
 
 function collides(circle, additional_circles=[]) {
@@ -317,104 +532,5 @@ function calculateScribbles(circle) {
            // Store each scribble
            circle.scribbles.push({startX, startY, controlPoint1X, controlPoint1Y, controlPoint2X, controlPoint2Y, endX, endY, fillHue});
        }
-   }
-}
-
-function newCircle(){
-   y = random(height);
-   let newCircle = {
-      x: random(width),
-      y: y,
-      r: currentSize,
-      color: getRandomColor(y / height),
-      randomAngle: random(TWO_PI),
-      crossHatch: PI/2,
-      scribbles: []
-   };
-   return newCircle;
-}
-
-function nextLayer(branches){
-   let new_branches = [];
-   for (let b of branches) {
-      for (let i = 0; i < maxBranches; i++){
-         // make copy of b. Call it new_b
-         let new_b = [...b];
-         //append new circle to new_b
-         new_b.push(newCircle());
-         //append new_b to new_branches
-         new_branches.push(new_b);
-      }
-   }
-   if (branches.length === 0){
-      for (let i = 0; i < maxBranches; i++){
-         // make copy of b. Call it new_b
-         let new_b = [];
-         //append new circle to new_b
-         new_b.push(newCircle());
-         //append new_b to new_branches
-         new_branches.push(new_b);
-      }
-   }
-   return new_branches;
-}
-
-function validNewLayer(branches){
-   return branches.filter(b => !collides(b[b.length - 1], b.slice(0, -1)));
-}
-
-function getHeadAtRandom(branches){
-   return random(branches)[0];
-}
-
-function shrink(){
-   currentSize = currentSize * (sizeTier/denom); 
-   sizeTier += 1;
-   denom += 1;
-}
-
-function nextCircle() {
-   let branches = [];
-   for(let i = 0; i < maxDepth; i++){
-      if (i === maxDepth - 1) {
-         let new_branches = [];
-         for (let b of branches) {
-            for (let i = 0; i < maxBranches; i++){
-               // make copy of b. Call it new_b
-               //append new circle to new_b
-               const c = newCircle();
-               if (!collides(c, b)){
-                  return b[0];
-               }
-            }
-         }
-         if (branches.length === 0){
-            for (let i = 0; i < maxBranches; i++){
-               // make copy of b. Call it new_b
-               const c = newCircle();
-               if (!collides(c)){
-                  return c;
-               }
-            }
-         }
-      } else {
-         let new_branches = nextLayer(branches);
-         new_branches = validNewLayer(new_branches);
-         if (new_branches.length === 0) {
-            if (branches.length === 0){
-               shrink();
-               return nextCircle();
-            }
-            return getHeadAtRandom(branches);
-         }
-         delete branches;
-         branches = new_branches;
-      }
-   }
-   if (branches.length === 0) {
-      shrink();
-      return nextCircle();
-   } else {
-      return getHeadAtRandom(branches);
    }
 }
