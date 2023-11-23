@@ -2,8 +2,8 @@ let styleChoices = [];
 let circles = [];
 let maxSize = 80; // Maximum radius size
 let minSize = 2; // Minimum radius size
-let totalCircles = 5000; // Total number of circles to attempt to pack
-let attemptLimit = 5000; // Maximum attempts before moving to a smaller size
+let totalCircles = 50000; // Total number of circles to attempt to pack
+let attemptLimit = 100; // Maximum attempts before moving to a smaller size
 sizeTier = 1;
 let denom = 3;
 let frameThickness = 15; // Thickness of the frame
@@ -14,26 +14,18 @@ let rectWidth = [];
 let rectHeight = [];
 let rectBound = [];
 let bgChoices = [[0, 0, 0], [45, 20, 100], [200, 30, 100]];
-// let paletteChoices = [
-//    [[197, 100, 88], [0, 100, 50]],
-//    [[345, 100, 100], [40, 100, 100]],
-//    [[173, 100, 100], [244, 100, 100]],
-//    [[311, 100, 45], [193, 100, 29]],
-//    [[320, 100, 95], [60, 100, 90]]
-// ]
+const maxBranches = 1000;
+const maxDepth = 2;
+let attempts = 0;
+let currentSize = null;
+let circleCounts = null; 
 let paletteChoices = [
    [[197, 100, 100], [0, 100, 100]],
    [[345, 100, 100], [40, 100, 100]],
    [[173, 100, 100], [244, 100, 100]],
    [[311, 100, 100], [193, 100, 100]],
    [[320, 100, 100], [60, 100, 100]]
-]
-
-let lightPaletteChoices = [
-   [[0, 0, 2], [187, 84, 67]]
-]
-let saveButton;
-
+];
 function setup() {
    if (windowWidth > windowHeight * (2/3)) {
       canvasHeight = windowHeight;
@@ -46,17 +38,11 @@ function setup() {
    centerCanvas();
    colorMode(HSB); // Switch to HSB color mode
    bgColor = random(bgChoices);
-   // bgColor = bgChoices[2];
-   console.log("bgColor:", bgColor);
    styleNums = [1, 2, 3, 4];
    style = random(styleNums);
-   // style = 4;
-   console.log("styleNum:", style);
    palette = shuffle(random(paletteChoices));
    color1 = palette[0];
    color2 = palette[1];
-   console.log("color1:", color1);
-   console.log("color2:", color2);
    numRect = random(1, 4);
    if (canvasHeight > canvasWidth) {
       for (let i = 0; i < numRect; i++) {
@@ -64,8 +50,6 @@ function setup() {
          if (isSquare) {
             rectWidth[i] = random((canvasWidth - (2 * frameThickness))/8, (canvasWidth - (2 * frameThickness)) * (4/5));
             rectHeight[i] = rectWidth[i];
-            console.log("rectWidth:", rectWidth[i]);
-            console.log("rectHeight:", rectHeight[i]);
          } else {
             rectWidth[i] = random((canvasWidth - (2 * frameThickness))/8, (canvasWidth - (2 * frameThickness)) * (4/5));
             rectHeight[i] = random((canvasWidth - (2 * frameThickness))/8, (canvasWidth - (2 * frameThickness)) * (4/5));
@@ -73,9 +57,6 @@ function setup() {
          rectX[i] = random(frameThickness + frameToRectPad, canvasWidth - rectWidth[i] - frameThickness - frameToRectPad);
          rectY[i] = random(frameThickness + frameToRectPad, canvasHeight - rectHeight[i] - frameThickness - frameToRectPad);
          rectBound[i] = random(10, 25);
-         console.log("rectX:", rectX[i]);
-         console.log("rectY:", rectY[i]);
-         console.log("rectBound:", rectBound[i]);
       }
    } else {
       for (let i = 0; i < numRect; i++) {
@@ -92,43 +73,9 @@ function setup() {
          rectBound[i] = random(10, 25);
       }
    }
-   let currentSize = maxSize;
-   let circleCounts = {}; // Track the number of circles for each size
-   while (circles.length < totalCircles && currentSize >= minSize) {
-      let attempts = 0;
-      let maxCircles;
-      circleCounts[currentSize] = 0; // Initialize count for the current size
-      maxCircles = Math.floor(Math.pow(3, (sizeTier * 1.25)));
-      while (circleCounts[currentSize] < maxCircles && attempts < attemptLimit) {
-         let y = random(height);
-         let newCircle = {
-            x: random(width),
-            y: y,
-            r: currentSize,
-            color: getRandomColor(y / height),
-            randomAngle: random(TWO_PI),
-            crossHatch: PI/2,
-            scribbles: []
-         };
-         if (style == 4) {
-            calculateScribbles(newCircle);
-         }
-         if (!collides(newCircle)) {
-            circles.push(newCircle);
-            circleCounts[currentSize]++;
-         }
-         attempts++;
-      }
-      if (attempts >= attemptLimit || circleCounts[currentSize] >= maxCircles) {
-         currentSize = currentSize * (sizeTier/denom); // Decrease the circle size
-         sizeTier = sizeTier + 1;
-         denom = sizeTier + 1;
-      }
-   }
-   // // Create and position the save button
-   // saveButton = createButton('Save as JPG');
-   // saveButton.position(10, height / 2); // Adjust the position as needed
-   // saveButton.mousePressed(saveArtwork); // Attach event listener
+   currentSize = maxSize;
+   circleCounts = {}; // Track the number of circles for each size
+   background(bgColor);
 }
 
 function saveArtwork() {
@@ -140,28 +87,39 @@ function centerCanvas() {
    let y = (windowHeight - height) / 2;
    myCanvas.position(x, y);
  }
- 
-//  function windowResized() {
-//    centerCanvas();
-//  }
 
 function draw() {
-   background(bgColor);
    translate(-width / 2, -height / 2); // Adjust for WEBGL's center origin
 
-   if (style == 1) {
-      parallelHatch();
-   } else if (style == 2) {
-      crossHatch();
-   } else if (style == 3) {
-      contourHatch();
-   } else if (style ==4 ) {
-      scribbleHatch();
+   if (circles.length < totalCircles) {
+      currentSize = max(currentSize, minSize);
+      let maxCircles;
+      circleCounts[currentSize] = 0; // Initialize count for the current size
+      maxCircles = Math.floor(Math.pow(3, (sizeTier * 1.25)));
+      if (circleCounts[currentSize] < maxCircles) {
+         let y = random(height);
+         let newCircle = nextCircle();
+         if (style == 4) {
+            calculateScribbles(newCircle);
+         }
+         circles.push(newCircle);
+      }
+      if (circles.length > 0) {
+         if (style == 1) {
+            parallelHatch();
+         } else if (style == 2) {
+            crossHatch();
+         } else if (style == 3) {
+            contourHatch();
+         } else if (style ==4 ) {
+            scribbleHatch();
+         }
+      }
    }
 }
 
 function parallelHatch() {
-   for (let circle of circles) {
+   for (let circle of [circles[circles.length - 1]]) {
       let numLines = circle.r * 3; // Proportional to the radius
       let lineSpacing = (circle.r * 2) / numLines;
 
@@ -186,55 +144,10 @@ function parallelHatch() {
    }
 }
 
-// function crossHatch() {
-//    for (let circle of circles) {
-//       let numLines = circle.r * 2; // Proportional to the radius
-//       let lineSpacing = (circle.r * 2) / numLines;
-//       // let randomAngle = random(TWO_PI); // Random rotation angle
-
-//       push(); // Isolate transformations
-//       translate(circle.x, circle.y); // Move to the circle's center
-//       rotate(circle.randomAngle); // Apply rotation
-
-//       if (isDark) {
-//          // fillLight = 10;
-//          // fill(color(hue(circle.color), fillLight, brightness(circle.color)));
-//          // console.log("fillLight:", fillLight);
-//          fill(0, 0, 20);
-//       } else {
-//          // fillDark = 10;
-//          // fill(color(hue(circle.color), saturation(circle.color), fillDark));
-//          // console.log("fillDark:", fillDark);
-//          fill(0, 0, 80);
-//       }
-//       noStroke();
-//       ellipse(0, 0, circle.r * 2, circle.r * 2);
-//       stroke(circle.color); // Color of the hatching lines
-//       strokeWeight(.25); // Thickness of the hatching lines
-
-//       for (let i = 0; i <= numLines; i++) {
-//          let y = -circle.r + i * lineSpacing;
-//          let xDelta = sqrt(circle.r * circle.r - y * y);
-//          line(-xDelta, y, xDelta, y);
-//       }
-
-//       rotate(circle.crossHatch); // Apply rotation
-
-//       for (let j = 0; j <= numLines; j++) {
-//          let y = -circle.r + j * lineSpacing;
-//          let xDelta = sqrt(circle.r * circle.r - y * y);
-//          line(-xDelta, y, xDelta, y);
-//       }
-      
-//       pop(); // Revert transformations
-//    }
-// }
-
 function crossHatch() {
-   for (let circle of circles) {
+   for (let circle of [circles[circles.length - 1]]) {
       let numLines = circle.r * 1.5; // Proportional to the radius
       let lineSpacing = (circle.r * 2) / numLines;
-      // let randomAngle = random(TWO_PI); // Random rotation angle
 
       push(); // Isolate transformations
       translate(circle.x, circle.y); // Move to the circle's center
@@ -266,7 +179,7 @@ function crossHatch() {
 }
 
 function contourHatch(){
-   for (let circle of circles) {
+   for (let circle of [circles[circles.length - 1]]) {
       let numContours = circle.r / 2; // Adjust the density of contour lines
       let contourSpacing = circle.r / numContours;
 
@@ -294,7 +207,7 @@ function contourHatch(){
 }
 
 function scribbleHatch() {
-   for (let circle of circles) {
+   for (let circle of [circles[circles.length - 1]]) {
       push(); // Isolate transformations
       translate(circle.x, circle.y); // Move to the circle's center
 
@@ -332,8 +245,8 @@ function getRandomColor(position) {
    return color(hue, 100, 100);
 }
 
-function collides(circle) {
-   for (let other of circles) {
+function collides(circle, additional_circles=[]) {
+   for (let other of circles.concat(additional_circles)) {
       let d = dist(circle.x, circle.y, other.x, other.y);
       if (d < circle.r + other.r) {
          return true;
@@ -404,5 +317,104 @@ function calculateScribbles(circle) {
            // Store each scribble
            circle.scribbles.push({startX, startY, controlPoint1X, controlPoint1Y, controlPoint2X, controlPoint2Y, endX, endY, fillHue});
        }
+   }
+}
+
+function newCircle(){
+   y = random(height);
+   let newCircle = {
+      x: random(width),
+      y: y,
+      r: currentSize,
+      color: getRandomColor(y / height),
+      randomAngle: random(TWO_PI),
+      crossHatch: PI/2,
+      scribbles: []
+   };
+   return newCircle;
+}
+
+function nextLayer(branches){
+   let new_branches = [];
+   for (let b of branches) {
+      for (let i = 0; i < maxBranches; i++){
+         // make copy of b. Call it new_b
+         let new_b = [...b];
+         //append new circle to new_b
+         new_b.push(newCircle());
+         //append new_b to new_branches
+         new_branches.push(new_b);
+      }
+   }
+   if (branches.length === 0){
+      for (let i = 0; i < maxBranches; i++){
+         // make copy of b. Call it new_b
+         let new_b = [];
+         //append new circle to new_b
+         new_b.push(newCircle());
+         //append new_b to new_branches
+         new_branches.push(new_b);
+      }
+   }
+   return new_branches;
+}
+
+function validNewLayer(branches){
+   return branches.filter(b => !collides(b[b.length - 1], b.slice(0, -1)));
+}
+
+function getHeadAtRandom(branches){
+   return random(branches)[0];
+}
+
+function shrink(){
+   currentSize = currentSize * (sizeTier/denom); 
+   sizeTier += 1;
+   denom += 1;
+}
+
+function nextCircle() {
+   let branches = [];
+   for(let i = 0; i < maxDepth; i++){
+      if (i === maxDepth - 1) {
+         let new_branches = [];
+         for (let b of branches) {
+            for (let i = 0; i < maxBranches; i++){
+               // make copy of b. Call it new_b
+               //append new circle to new_b
+               const c = newCircle();
+               if (!collides(c, b)){
+                  return b[0];
+               }
+            }
+         }
+         if (branches.length === 0){
+            for (let i = 0; i < maxBranches; i++){
+               // make copy of b. Call it new_b
+               const c = newCircle();
+               if (!collides(c)){
+                  return c;
+               }
+            }
+         }
+      } else {
+         let new_branches = nextLayer(branches);
+         new_branches = validNewLayer(new_branches);
+         if (new_branches.length === 0) {
+            if (branches.length === 0){
+               shrink();
+               return nextCircle();
+            }
+            return getHeadAtRandom(branches);
+         }
+         delete branches;
+         branches = new_branches;
+      }
+   }
+   if (branches.length === 0) {
+      shrink();
+      return nextCircle();
+   } else {
+      return getHeadAtRandom(branches);
    }
 }
