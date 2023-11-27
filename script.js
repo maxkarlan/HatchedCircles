@@ -2,7 +2,7 @@ let styleChoices = [];
 let circles = [];
 let maxSize = 80; // Maximum radius size
 let minSize = 2; // Minimum radius size
-let totalCircles = 10000; // Total number of circles to attempt to pack
+let totalCircles = 5000; // Total number of circles to attempt to pack
 let attemptLimit = 100; // Maximum attempts before moving to a smaller size
 sizeTier = 1;
 let denom = 2;
@@ -40,6 +40,7 @@ function setup() {
       canvasWidth = windowWidth;
       canvasHeight = canvasWidth * (3/2);
    }
+   angleMode(DEGREES);
    myCanvas = createCanvas(canvasWidth, canvasHeight, WEBGL);
    centerCanvas();
    window.addEventListener('wheel', (e) => {
@@ -50,11 +51,13 @@ function setup() {
     });
    colorMode(HSB); // Switch to HSB color mode
    bgColor = random(bgChoices);
-   styleNums = [1, 2, 3, 4, 5];
+   styleNums = [1, 2, 3, 4, 5, 6];
    style = random(styleNums);
+   // style = 4;
    palette = shuffle(random(paletteChoices));
    color1 = palette[0];
    color2 = palette[1];
+   // randomSeed(9921);
    numRect = random(1, 4);
    if (canvasHeight > canvasWidth) {
       for (let i = 0; i < numRect; i++) {
@@ -85,14 +88,21 @@ function setup() {
          rectBound[i] = random(10, 25);
       }
    }
+   const d = (new Date()).getMilliseconds();
+   // randomSeed(d)
    currentSize = maxSize;
    circleCounts = {}; // Track the number of circles for each size
 
-   if (style == 5) {
+   if (style === 5) {
       setupThreeJS();
-   } else {
+   } else if (style != 5 && style != 6) {
       background(bgColor);
    }
+   // Scale brushes to adapt to canvas size
+   brush.scaleBrushes(1.5);
+
+   // Activate the flowfield we're going to use
+   brush.field("seabed");
 }
 
 function saveArtwork() {
@@ -110,6 +120,7 @@ function windowResized() {
 }
 
 function draw() {
+   frameRate(30);
    translate(-width / 2, -height / 2); // Adjust for WEBGL's center origin
 
    // scale(zoom); // Apply zoom scaling
@@ -118,7 +129,7 @@ function draw() {
       currentSize = max(currentSize, minSize);
       let maxCircles;
       circleCounts[currentSize] = 0; // Initialize count for the current size
-      maxCircles = Math.floor(Math.pow(3, (sizeTier * 1.25)));
+      maxCircles = Math.floor(Math.pow(3, (sizeTier * 1.1)));
       if (circleCounts[currentSize] < maxCircles) {
          let y = random(height);
          let newCircle = nextCircle();
@@ -134,10 +145,12 @@ function draw() {
             crossHatch();
          } else if (style == 3) {
             contourHatch();
-         } else if (style ==4 ) {
+         } else if (style == 4) {
             scribbleHatch();
-         } else if (style ==5) {
+         } else if (style == 5) {
             threeDim();
+         } else if (style == 6) {
+            threeDimGlasses();
          }
       }
    }
@@ -247,114 +260,141 @@ function nextCircle() {
 }
 
 function parallelHatch() {
-   for (let circle of [circles[circles.length - 1]]) {
-      let numLines = circle.r * 3; // Proportional to the radius
-      let lineSpacing = (circle.r * 2) / numLines;
+   let circle = circles[circles.length - 1];
+   let numLines = circle.r * 3; // Proportional to the radius
+   let lineSpacing = (circle.r * 2) / numLines;
 
-      push(); // Isolate transformations
-      translate(circle.x, circle.y); // Move to the circle's center
-      rotate(circle.randomAngle); // Apply rotation
-      
-      fill(circle.color);
-      noStroke();
-      ellipse(0, 0, circle.r * 2, circle.r * 2);
+   push(); // Isolate transformations
+   translate(circle.x, circle.y); // Move to the circle's center
+   rotate(circle.randomAngle); // Apply rotation
+   
+   fill(circle.color);
+   noStroke();
+   ellipse(0, 0, circle.r * 2, circle.r * 2);
 
-      stroke(0, 0, 0); // Color of the hatching lines
-      strokeWeight(.2); // Thickness of the hatching lines
+   stroke(0, 0, 0); // Color of the hatching lines
+   strokeWeight(.2); // Thickness of the hatching lines
 
-      for (let i = 0; i <= numLines; i++) {
-         let y = -circle.r + i * lineSpacing;
-         let xDelta = sqrt(circle.r * circle.r - y * y);
-         line(-xDelta, y, xDelta, y);
-      }
-
-      pop(); // Revert transformations
+   for (let i = 0; i <= numLines; i++) {
+      let y = -circle.r + i * lineSpacing;
+      let xDelta = sqrt(circle.r * circle.r - y * y);
+      line(-xDelta, y, xDelta, y);
    }
+
+   pop(); // Revert transformations
 }
 
 function crossHatch() {
-   for (let circle of [circles[circles.length - 1]]) {
-      let numLines = circle.r * 1.5; // Proportional to the radius
-      let lineSpacing = (circle.r * 2) / numLines;
+   let circle = circles[circles.length - 1];
+   let numLines = circle.r * 1.5; // Proportional to the radius
+   let lineSpacing = (circle.r * 2) / numLines;
 
-      push(); // Isolate transformations
-      translate(circle.x, circle.y); // Move to the circle's center
-      rotate(circle.randomAngle); // Apply rotation
+   push(); // Isolate transformations
+   translate(circle.x, circle.y); // Move to the circle's center
+   rotate(circle.randomAngle); // Apply rotation
 
-      fill(circle.color);
-      noStroke();
-      ellipse(0, 0, circle.r * 2, circle.r * 2);
+   fill(circle.color);
+   noStroke();
+   ellipse(0, 0, circle.r * 2, circle.r * 2);
 
-      stroke(0, 0, 0); // Color of the hatching lines
-      strokeWeight(.35); // Thickness of the hatching lines
+   stroke(0, 0, 0); // Color of the hatching lines
+   strokeWeight(.35); // Thickness of the hatching lines
 
-      for (let i = 0; i <= numLines; i++) {
-         let y = -circle.r + i * lineSpacing;
-         let xDelta = sqrt(circle.r * circle.r - y * y);
-         line(-xDelta, y, xDelta, y);
-      }
-
-      rotate(circle.crossHatch); // Apply rotation
-
-      for (let j = 0; j <= numLines; j++) {
-         let y = -circle.r + j * lineSpacing;
-         let xDelta = sqrt(circle.r * circle.r - y * y);
-         line(-xDelta, y, xDelta, y);
-      }
-
-      pop(); // Revert transformations
+   for (let i = 0; i <= numLines; i++) {
+      let y = -circle.r + i * lineSpacing;
+      let xDelta = sqrt(circle.r * circle.r - y * y);
+      line(-xDelta, y, xDelta, y);
    }
+
+   rotate(circle.crossHatch); // Apply rotation
+
+   for (let j = 0; j <= numLines; j++) {
+      let y = -circle.r + j * lineSpacing;
+      let xDelta = sqrt(circle.r * circle.r - y * y);
+      line(-xDelta, y, xDelta, y);
+   }
+
+   pop(); // Revert transformations
 }
 
 function contourHatch(){
-   for (let circle of [circles[circles.length - 1]]) {
-      let numContours = circle.r / 2; // Adjust the density of contour lines
-      let contourSpacing = circle.r / numContours;
+   let circle = circles[circles.length - 1];
+   let numContours = circle.r / 2; // Adjust the density of contour lines
+   let contourSpacing = circle.r / numContours;
 
-      push(); // Isolate transformations
-      translate(circle.x, circle.y); // Move to the circle's center
-      rotate(circle.randomAngle); // Apply rotation
+   push(); // Isolate transformations
+   translate(circle.x, circle.y); // Move to the circle's center
+   rotate(circle.randomAngle); // Apply rotation
 
-      fill(circle.color);
-      noStroke();
-      ellipse(0, 0, circle.r * 2, circle.r * 2);
+   fill(circle.color);
+   noStroke();
+   ellipse(0, 0, circle.r * 2, circle.r * 2);
 
-      stroke(0, 0, 0); // Color of the hatching lines
-      strokeWeight(.45); // Thickness of the hatching lines
+   stroke(0, 0, 0); // Color of the hatching lines
+   strokeWeight(.45); // Thickness of the hatching lines
 
-      // Draw each contour line
-      for (let i = 0; i < numContours; i++) {
-          let contourRadius = circle.r - i * contourSpacing;
-          if (contourRadius > 0) {
-              ellipse(0, 0, contourRadius * 2, contourRadius * 2);
-          }
-      }
-
-      pop(); // Revert transformations
+   // Draw each contour line
+   for (let i = 0; i < numContours; i++) {
+         let contourRadius = circle.r - i * contourSpacing;
+         if (contourRadius > 0) {
+            ellipse(0, 0, contourRadius * 2, contourRadius * 2);
+         }
    }
+
+   pop(); // Revert transformations
 }
 
 function scribbleHatch() {
-   for (let circle of [circles[circles.length - 1]]) {
-      push(); // Isolate transformations
-      translate(circle.x, circle.y); // Move to the circle's center
+   let circle = circles[circles.length - 1];
+   push(); // Isolate transformations
+   translate(circle.x, circle.y); // Move to the circle's center
 
-      // Render pre-calculated scribbles
-      for (let scribble of circle.scribbles) {
-         noFill();
-         stroke(scribble.fillHue, saturation(circle.color), brightness(circle.color));
-         strokeWeight(1);
-         bezier(scribble.startX, scribble.startY, scribble.controlPoint1X, scribble.controlPoint1Y, scribble.controlPoint2X, scribble.controlPoint2Y, scribble.endX, scribble.endY);
-      }
-
-      pop(); // Revert transformations
+   let brushStyle = brush.box()[Math.floor(Math.random() * brush.box().length)];
+   brushStyle = "pen";
+   // Render pre-calculated scribbles
+   for (let scribble of circle.scribbles) {
+      let c = color(scribble[1], 100, 100);
+      brush.set(brushStyle, c, 1);
+      brush.spline(scribble[0], 1);
    }
+
+   pop(); // Revert transformations
 }
 
 function threeDim() {
    for (let circle of [circles[circles.length - 1]]) {
       createThreeJSSphere(circle);
   }
+}
+
+function threeDimGlasses() {
+   let circle = circles[circles.length - 1];
+   push(); // Isolate transformations
+   // translate(circle.x, circle.y); // Move to the circle's center
+   colorMode(RGB);  // Ensure HSB mode is set
+   c = HSBtoRGB(hue(circle.color), saturation(circle.color), brightness(circle.color));
+   let offset = circle.r/10; // Adjust this value to control the 3D effect strength
+   blendMode(BLEND);
+   strokeWeight(30);
+
+   // noStroke();
+   // fill(circle.color); // Set fill to red color
+   // ellipse(circle.x + offset, circle.y, circle.r * 2, circle.r * 2);
+   // Define the red color with transparency
+   const redValue = red(c);
+   noStroke();
+   fill(color(redValue, 0, 0, 127)); // Set fill to red color
+   ellipse(circle.x + offset, circle.y, circle.r * 2, circle.r * 2);
+
+   // noStroke();
+   // fill(circle.color); // Set fill to blue color
+   // ellipse(circle.x - offset, circle.y, circle.r * 2, circle.r * 2);
+   // Define the blue color with transparency
+   const blueValue = blue(c);
+   const greenValue = green(c);
+   noStroke();
+   fill(color(0, greenValue, blueValue, 127)); // Set fill to blue color
+   ellipse(circle.x - offset, circle.y, circle.r * 2, circle.r * 2);
 }
 
 function stippleHatch() {
@@ -414,12 +454,46 @@ function createThreeJSSphere(circle) {
    // Generate color using the same method as in p5.js
    let color = getRandomColor(circle.y / window.innerHeight); // Adjust as necessary
    
-   // Use MeshStandardMaterial or MeshPhongMaterial for better lighting effects
-   let material = new THREE.MeshStandardMaterial({
+   // // Use MeshStandardMaterial or MeshPhongMaterial for better lighting effects
+   // let material = new THREE.MeshStandardMaterial({
+   //    color: color,
+   //    roughness: 0.5, // Adjust for material roughness
+   //    metalness: 0.1  // Adjust for metalness
+   // });
+
+   const options = {
+      enableSwoopingCamera: false,
+      enableRotation: true,
+      transmission: .1,
+      thickness: .6,
+      roughness: 1,
+      envMapIntensity: 1.5,
+      clearcoat: .1,
+      clearcoatRoughness: 0.1,
+      normalScale: 1,
+      clearcoatNormalScale: 10,
+      normalRepeat: 1
+    };
+
+   const textureLoader = new THREE.TextureLoader();
+   const normalMapTexture = textureLoader.load("normal.jpg");
+   normalMapTexture.wrapS = THREE.RepeatWrapping;
+   normalMapTexture.wrapT = THREE.RepeatWrapping;
+   normalMapTexture.repeat.set(options.normalRepeat, options.normalRepeat);
+
+   const material = new THREE.MeshPhysicalMaterial({  
       color: color,
-      roughness: 0.5, // Adjust for material roughness
-      metalness: 0.1  // Adjust for metalness
-   });
+      transmission: options.transmission,
+      thickness: options.thickness,
+      roughness: options.roughness,
+      envMapIntensity: options.envMapIntensity,
+      clearcoat: options.clearcoat,
+      clearcoatRoughness: options.clearcoatRoughness,
+      normalScale: new THREE.Vector2(options.normalScale),
+      normalMap: normalMapTexture,
+      clearcoatNormalMap: normalMapTexture,
+      clearcoatNormalScale: new THREE.Vector2(options.clearcoatNormalScale)
+    });
 
    let sphere = new THREE.Mesh(geometry, material);
 
@@ -462,8 +536,12 @@ function getRandomColor(position) {
 
 function collides(circle, additional_circles=[]) {
    for (let other of circles.concat(additional_circles)) {
-      let d = dist(circle.x, circle.y, other.x, other.y);
-      if (d < circle.r + other.r) {
+      if (style === 6) {
+         d = .9 * dist(circle.x, circle.y, other.x, other.y);
+      } else {
+         d = dist(circle.x, circle.y, other.x, other.y);
+      }
+      if (d < (circle.r + other.r)) {
          return true;
       }
    }
@@ -511,26 +589,33 @@ function collides(circle, additional_circles=[]) {
 }
 
 function calculateScribbles(circle) {
-   let numScribbles = (PI * circle.r * circle.r) / 5; // Proportional to the area
+   let numScribbles = (PI * circle.r * circle.r) / 15; // Proportional to the area
 
    for (let i = 0; i < numScribbles; i++) {
-       let startX = random(-circle.r, circle.r);
-       let startY = random(-circle.r, circle.r);
-       let endX = random(-circle.r, circle.r);
-       let endY = random(-circle.r, circle.r);
+      let startX = random(-circle.r, circle.r);
+      let startY = random(-circle.r, circle.r);
+      let endX = random(-circle.r, circle.r);
+      let endY = random(-circle.r, circle.r);
 
-       // Ensure start and end points are within the circle
-       if (dist(0, 0, startX, startY) < circle.r && dist(0, 0, endX, endY) < circle.r) {
-           let controlPoint1X = random(-circle.r, circle.r);
-           let controlPoint1Y = random(-circle.r, circle.r);
-           let controlPoint2X = random(-circle.r, circle.r);
-           let controlPoint2Y = random(-circle.r, circle.r);
-           let hueDiff = random(-20, 20);
-           let fillHue = (hue(circle.color) + hueDiff);
-           fillHue = (fillHue + 360) % 360;
+      //  // Ensure start and end points are within the circle
+      if (dist(0, 0, startX, startY) < circle.r && dist(0, 0, endX, endY) < circle.r) {
+         const control_points_size = 3;
+         const control_points = [];
+         while (control_points.length < control_points_size) {
+            let cX = random(-circle.r, circle.r);
+            let cY = random(-circle.r, circle.r);
+            if (dist(0, 0, cX, cY) < circle.r) {
+               control_points.push([cX, cY]);
+            }
+         }
 
-           // Store each scribble
-           circle.scribbles.push({startX, startY, controlPoint1X, controlPoint1Y, controlPoint2X, controlPoint2Y, endX, endY, fillHue});
-       }
+         const points = [[startX, startY]].concat(control_points).concat([[endX, endY]]);
+         let hueDiff = random(-30, 30);
+         let fillHue = (hue(circle.color) + hueDiff);
+         fillHue = (fillHue + 360) % 360;
+
+         //   // Store each scribble
+         circle.scribbles.push([points, fillHue]);
+      }
    }
 }
